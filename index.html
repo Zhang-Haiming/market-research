@@ -137,14 +137,23 @@ h1,h2,h3{font-family:var(--font-display); text-wrap:balance; margin:0}
 @media (min-width:920px){ .materials{ position:sticky; top:16px; } }
 .materials h2{font-size:12px; font-family:var(--font-mono); letter-spacing:.08em; color:var(--ink-dim); text-transform:uppercase; margin-bottom:10px}
 .mat-item{
-  padding:9px 0; border-top:1px solid var(--line); cursor:default;
+  padding:9px 0; border-top:1px solid var(--line); cursor:pointer;
 }
 .mat-item:first-of-type{border-top:none}
+.mat-item:hover .mtitle{color:var(--accent-ink)}
 .mat-item .mid{font-family:var(--font-mono); font-size:11.5px; font-weight:600; color:var(--accent-ink); background:var(--accent-soft); padding:1px 5px; border-radius:4px; display:inline-block}
+.mat-item .mchev{float:right; font-size:10px; color:var(--ink-dim); transition:transform .15s}
+.mat-item.expanded .mchev{transform:rotate(90deg)}
 .mat-item.dim{opacity:.35}
 .mat-item .mtitle{font-size:12.5px; font-weight:600; margin-top:4px}
 .mat-item .mmeta{font-size:11px; color:var(--ink-dim); font-family:var(--font-mono); margin-top:1px}
 .mat-item .mnote{font-size:11px; color:var(--warn); margin-top:3px}
+.mat-item .mfull{
+  display:none; margin-top:8px; padding-top:8px; border-top:1px dashed var(--line);
+  font-size:12.5px; color:var(--ink); line-height:1.65; cursor:text;
+}
+.mat-item .mfull .mnature{font-family:var(--font-mono); font-size:10.5px; color:var(--mute); text-transform:uppercase; letter-spacing:.04em; margin-bottom:5px}
+.mat-item.expanded .mfull{display:block}
 
 /* ---------- 主内容 ---------- */
 .main-col{min-width:0}
@@ -155,6 +164,24 @@ h1,h2,h3{font-family:var(--font-display); text-wrap:balance; margin:0}
 }
 .viewpoint-card .label{font-family:var(--font-mono); font-size:11px; color:var(--ink-dim); letter-spacing:.06em; text-transform:uppercase; margin-bottom:8px}
 .viewpoint-card .vtext{font-family:var(--font-display); font-size:17px; line-height:1.75}
+
+.claims-overview{
+  background:var(--surface); border:1px solid var(--line); border-radius:10px;
+  padding:14px 16px 6px; margin-bottom:18px;
+}
+.claims-overview h3{
+  font-size:11px; font-family:var(--font-mono); letter-spacing:.08em;
+  text-transform:uppercase; color:var(--ink-dim); margin-bottom:6px;
+}
+.overview-row{
+  display:flex; align-items:baseline; gap:10px; padding:8px 0;
+  border-top:1px solid var(--line); cursor:pointer;
+}
+.overview-row:first-of-type{border-top:none}
+.overview-row:hover .overview-text{color:var(--accent-ink)}
+.overview-row .claim-id{flex:0 0 auto; width:28px}
+.overview-text{font-size:13.5px; flex:1; min-width:0}
+.overview-row .badges{flex:0 0 auto}
 
 .summary-banner{
   display:grid; gap:14px; grid-template-columns: auto 1fr; align-items:start;
@@ -257,7 +284,7 @@ h1,h2,h3{font-family:var(--font-display); text-wrap:balance; margin:0}
 
   <div class="layout">
     <aside class="materials" id="materialsPanel">
-      <h2>参考材料库 · 6份</h2>
+      <h2>参考材料库 · 6份 <span style="font-weight:400; text-transform:none; letter-spacing:0">（点击展开原文）</span></h2>
       <div id="materialsList"></div>
     </aside>
 
@@ -318,14 +345,26 @@ function renderMaterials(activeIds){
   const el = document.getElementById('materialsList');
   el.innerHTML = MATERIALS.map(m => {
     const dim = activeIds && !activeIds.has(m.id) ? ' dim' : '';
-    return `<div class="mat-item${dim}">
+    return `<div class="mat-item${dim}" data-mid="${esc(m.id)}">
+      <span class="mchev">▸</span>
       <span class="mid">${m.id}</span>
       <div class="mtitle">${esc(m.title)}</div>
       <div class="mmeta">${esc(m.source)} · ${esc(m.publish_date)}</div>
       ${m.is_preliminary ? '<div class="mnote">⚠ 初步统计，已被修订</div>' : ''}
       ${m.version_of ? `<div class="mnote">↻ 为 ${m.version_of} 的修订说明</div>` : ''}
+      <div class="mfull">
+        <div class="mnature">${esc(m.nature)} · 统计期：${esc(m.period)}</div>
+        ${esc(m.text)}
+      </div>
     </div>`;
   }).join('');
+  el.querySelectorAll('.mat-item').forEach(item => {
+    item.addEventListener('click', (ev) => {
+      // 点击原文本身（已展开状态下选中文字）不触发折叠
+      if(ev.target.closest('.mfull') && item.classList.contains('expanded')) return;
+      item.classList.toggle('expanded');
+    });
+  });
 }
 
 function renderClaimCard(c){
@@ -336,7 +375,7 @@ function renderClaimCard(c){
     </div>`).join('');
   const rewrite = c.suggested_rewrite ? `
     <div class="rewrite"><span class="k">建议改写</span><br/>${esc(c.suggested_rewrite)}</div>` : '';
-  return `<div class="claim-card">
+  return `<div class="claim-card" id="claim-${esc(c.claim_id)}">
     <div class="claim-head">
       <div><div class="claim-id">${esc(c.claim_id)}</div><div class="claim-text">${esc(c.text)}</div></div>
       <div class="badges">
@@ -350,13 +389,26 @@ function renderClaimCard(c){
   </div>`;
 }
 
+function renderOverviewRow(c){
+  return `<div class="overview-row" data-target="claim-${esc(c.claim_id)}">
+    <span class="claim-id">${esc(c.claim_id)}</span>
+    <span class="overview-text">${esc(c.text)}</span>
+    <span class="badges"><span class="badge type">${TYPE_LABEL[c.claim_type]||c.claim_type}</span></span>
+  </div>`;
+}
+
 function renderViewpointCase(caseData){
   const summary = caseData.summary;
+  const overviewHtml = caseData.claims.map(renderOverviewRow).join('');
   const claimsHtml = caseData.claims.map(renderClaimCard).join('');
   return `
     <div class="viewpoint-card">
       <div class="label">待核验观点</div>
       <div class="vtext">${esc(caseData.viewpoint)}</div>
+    </div>
+    <div class="claims-overview">
+      <h3>第一步 · 声明拆解（${caseData.claims.length}条，点击跳转详细核验）</h3>
+      ${overviewHtml}
     </div>
     <div class="summary-banner">
       <span class="risk-badge ${summary.overall_risk}">风险：${summary.overall_risk}</span>
@@ -408,6 +460,12 @@ function showCase(key){
   } else {
     body.innerHTML = renderViewpointCase(data);
     renderMaterials(citedMaterialIds(data));
+    body.querySelectorAll('.overview-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const target = document.getElementById(row.dataset.target);
+        if(target) target.scrollIntoView({behavior:'smooth', block:'center'});
+      });
+    });
   }
 }
 
