@@ -1,0 +1,429 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>投研观点证据核验台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* ===== 投研观点证据核验台 =====
+   布局：左侧材料库（可核对溯源） + 顶部案例切换 + 主区逐条核验卡片。
+   设计意图：像一张"证据台账"——原文被拆成条目，每条旁边钉着引用的材料原文，
+   用高亮色标出核验状态，呼应"审计/核对"这件事本身。 */
+:root{
+  --bg:#f2f1ec;
+  --surface:#ffffff;
+  --surface-2:#eae8df;
+  --ink:#1f2420;
+  --ink-dim:#5b6058;
+  --line:#d8d5c9;
+  --accent:#b4650a;
+  --accent-ink:#5c3406;
+  --accent-soft:#f3e2c8;
+  --ok:#2f6d3f;
+  --ok-soft:#dfeee0;
+  --bad:#a4342a;
+  --bad-soft:#f6e0dd;
+  --warn:#9a6a0c;
+  --warn-soft:#f3e7c9;
+  --partial:#2d5f8a;
+  --partial-soft:#dde9f2;
+  --mute:#6b6f68;
+  --mute-soft:#e7e5db;
+  --font-display:'Source Serif 4', Georgia, serif;
+  --font-body:'Public Sans', -apple-system, system-ui, sans-serif;
+  --font-mono:'IBM Plex Mono', ui-monospace, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15171a;
+    --surface:#1d2024;
+    --surface-2:#24282d;
+    --ink:#e9e7df;
+    --ink-dim:#a3a8a0;
+    --line:#32363a;
+    --accent:#e3a24a;
+    --accent-ink:#f6dcae;
+    --accent-soft:#3a2d16;
+    --ok:#7bc98c;
+    --ok-soft:#1c2e1f;
+    --bad:#e38d84;
+    --bad-soft:#33201d;
+    --warn:#e0b45c;
+    --warn-soft:#352a12;
+    --partial:#8db8dd;
+    --partial-soft:#1c2a35;
+    --mute:#9a9e97;
+    --mute-soft:#25282a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15171a;
+  --surface:#1d2024;
+  --surface-2:#24282d;
+  --ink:#e9e7df;
+  --ink-dim:#a3a8a0;
+  --line:#32363a;
+  --accent:#e3a24a;
+  --accent-ink:#f6dcae;
+  --accent-soft:#3a2d16;
+  --ok:#7bc98c;
+  --ok-soft:#1c2e1f;
+  --bad:#e38d84;
+  --bad-soft:#33201d;
+  --warn:#e0b45c;
+  --warn-soft:#352a12;
+  --partial:#8db8dd;
+  --partial-soft:#1c2a35;
+  --mute:#9a9e97;
+  --mute-soft:#25282a;
+  color-scheme: dark;
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--font-body);
+  font-size:15px;
+  line-height:1.6;
+  padding-left:max(16px, env(safe-area-inset-left,0px));
+  padding-right:max(16px, env(safe-area-inset-right,0px));
+}
+h1,h2,h3{font-family:var(--font-display); text-wrap:balance; margin:0}
+::selection{background:var(--accent-soft); color:var(--accent-ink)}
+
+.wrap{max-width:1180px; margin:0 auto; padding-block:28px 64px}
+
+/* ---------- 顶部 ---------- */
+.masthead{
+  display:flex; align-items:baseline; justify-content:space-between; gap:16px;
+  flex-wrap:wrap; padding-bottom:18px; border-bottom:2px solid var(--ink);
+  margin-bottom:22px;
+}
+.masthead .brand{display:flex; align-items:baseline; gap:10px}
+.masthead .brand .mark{
+  font-family:var(--font-mono); font-size:11px; letter-spacing:.08em;
+  background:var(--ink); color:var(--bg); padding:3px 7px; border-radius:3px;
+}
+.masthead h1{font-size:22px; font-weight:600}
+.masthead .tagline{font-size:12.5px; color:var(--ink-dim); font-family:var(--font-mono)}
+
+/* ---------- 案例切换 ---------- */
+.case-tabs{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:24px}
+.case-tab{
+  font-family:var(--font-mono); font-size:12.5px; letter-spacing:.02em;
+  padding:9px 14px; border:1px solid var(--line); border-radius:7px;
+  background:var(--surface); color:var(--ink-dim); cursor:pointer;
+  transition:border-color .15s, color .15s, background .15s;
+}
+.case-tab:hover{border-color:var(--accent)}
+.case-tab[aria-selected="true"]{
+  background:var(--ink); color:var(--bg); border-color:var(--ink);
+}
+.case-tab .risk-dot{display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:6px; vertical-align:middle}
+
+/* ---------- 主布局 ---------- */
+.layout{display:grid; grid-template-columns: 1fr; gap:22px}
+@media (min-width:920px){
+  .layout{grid-template-columns: 250px 1fr}
+}
+
+/* ---------- 材料库侧栏 ---------- */
+.materials{
+  background:var(--surface); border:1px solid var(--line); border-radius:10px;
+  padding:14px; align-self:start;
+  position:static;
+}
+@media (min-width:920px){ .materials{ position:sticky; top:16px; } }
+.materials h2{font-size:12px; font-family:var(--font-mono); letter-spacing:.08em; color:var(--ink-dim); text-transform:uppercase; margin-bottom:10px}
+.mat-item{
+  padding:9px 0; border-top:1px solid var(--line); cursor:default;
+}
+.mat-item:first-of-type{border-top:none}
+.mat-item .mid{font-family:var(--font-mono); font-size:11.5px; font-weight:600; color:var(--accent-ink); background:var(--accent-soft); padding:1px 5px; border-radius:4px; display:inline-block}
+.mat-item.dim{opacity:.35}
+.mat-item .mtitle{font-size:12.5px; font-weight:600; margin-top:4px}
+.mat-item .mmeta{font-size:11px; color:var(--ink-dim); font-family:var(--font-mono); margin-top:1px}
+.mat-item .mnote{font-size:11px; color:var(--warn); margin-top:3px}
+
+/* ---------- 主内容 ---------- */
+.main-col{min-width:0}
+
+.viewpoint-card{
+  background:var(--surface-2); border:1px solid var(--line); border-radius:10px;
+  padding:18px 20px; margin-bottom:18px;
+}
+.viewpoint-card .label{font-family:var(--font-mono); font-size:11px; color:var(--ink-dim); letter-spacing:.06em; text-transform:uppercase; margin-bottom:8px}
+.viewpoint-card .vtext{font-family:var(--font-display); font-size:17px; line-height:1.75}
+
+.summary-banner{
+  display:grid; gap:14px; grid-template-columns: auto 1fr; align-items:start;
+  background:var(--surface); border:1px solid var(--line); border-radius:10px;
+  padding:16px 18px; margin-bottom:22px;
+}
+.risk-badge{
+  font-family:var(--font-mono); font-size:11.5px; font-weight:600; letter-spacing:.04em;
+  padding:6px 10px; border-radius:7px; white-space:nowrap; height:fit-content;
+}
+.risk-badge.高{background:var(--bad-soft); color:var(--bad)}
+.risk-badge.中{background:var(--warn-soft); color:var(--warn)}
+.risk-badge.低{background:var(--ok-soft); color:var(--ok)}
+.summary-banner .stext{font-size:14px}
+.summary-banner .actions{margin-top:10px}
+.summary-banner .actions summary{cursor:pointer; font-size:12.5px; color:var(--partial); font-family:var(--font-mono)}
+.summary-banner .actions ul{margin:8px 0 0; padding-left:18px; font-size:13px; color:var(--ink-dim)}
+.summary-banner .actions li{margin-bottom:5px}
+
+.claims{display:flex; flex-direction:column; gap:12px}
+.claim-card{
+  background:var(--surface); border:1px solid var(--line); border-radius:10px;
+  padding:16px 18px;
+}
+.claim-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap}
+.claim-id{font-family:var(--font-mono); font-size:11px; color:var(--ink-dim)}
+.claim-text{font-size:14.5px; font-weight:500; margin-top:3px}
+.badges{display:flex; gap:6px; flex-wrap:wrap}
+.badge{
+  font-family:var(--font-mono); font-size:10.5px; font-weight:600; letter-spacing:.03em;
+  padding:3px 8px; border-radius:20px; white-space:nowrap;
+}
+.badge.type{background:var(--mute-soft); color:var(--mute)}
+.badge.v-supported{background:var(--ok-soft); color:var(--ok)}
+.badge.v-partially_supported{background:var(--partial-soft); color:var(--partial)}
+.badge.v-not_supported{background:var(--bad-soft); color:var(--bad)}
+.badge.v-outdated{background:var(--warn-soft); color:var(--warn)}
+.badge.v-uncovered{background:var(--mute-soft); color:var(--mute)}
+
+.evidence{margin-top:12px; display:flex; flex-direction:column; gap:6px}
+.ev-row{
+  display:grid; grid-template-columns: 70px 1fr; gap:10px;
+  font-size:12.5px; padding:8px 10px; background:var(--surface-2); border-radius:7px;
+  border-left:3px solid var(--line);
+}
+.ev-row .ev-id{font-family:var(--font-mono); font-weight:600; color:var(--accent-ink)}
+.ev-row .ev-rel{font-size:10.5px; color:var(--ink-dim); margin-top:2px}
+.ev-row .ev-quote{font-style:italic; color:var(--ink)}
+
+.explain{margin-top:12px; font-size:13px; color:var(--ink-dim); border-top:1px dashed var(--line); padding-top:10px}
+.explain .k{font-family:var(--font-mono); font-size:10.5px; color:var(--mute); text-transform:uppercase; letter-spacing:.05em}
+.rewrite{margin-top:10px; background:var(--accent-soft); color:var(--accent-ink); border-radius:7px; padding:10px 12px; font-size:13px}
+.rewrite .k{font-family:var(--font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; opacity:.8}
+
+/* ---------- 临时查询 ---------- */
+.query-card{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:20px}
+.query-q{font-family:var(--font-mono); font-size:12px; color:var(--ink-dim); margin-bottom:6px}
+.query-qtext{font-family:var(--font-display); font-size:17px; margin-bottom:16px}
+.query-a{background:var(--ok-soft); color:var(--ok); border-radius:8px; padding:14px 16px; font-size:14.5px; line-height:1.7}
+.query-note{margin-top:14px; background:var(--warn-soft); color:var(--warn); border-radius:8px; padding:12px 14px; font-size:13px; line-height:1.65}
+.query-note .k{font-family:var(--font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; opacity:.8; display:block; margin-bottom:4px}
+
+.try-box{margin-top:26px; border:1px dashed var(--line); border-radius:10px; padding:16px 18px}
+.try-box h3{font-size:13px; font-family:var(--font-mono); color:var(--ink-dim); text-transform:uppercase; letter-spacing:.06em; margin-bottom:10px}
+.try-row{display:flex; gap:8px; flex-wrap:wrap}
+.try-row input{
+  flex:1; min-width:200px; font-family:var(--font-body); font-size:13.5px;
+  padding:9px 12px; border:1px solid var(--line); border-radius:7px; background:var(--surface-2); color:var(--ink);
+}
+.try-row button{
+  font-family:var(--font-mono); font-size:12.5px; font-weight:600; letter-spacing:.03em;
+  padding:9px 16px; border-radius:7px; border:none; background:var(--ink); color:var(--bg); cursor:pointer;
+}
+.try-row button:hover{background:var(--accent); color:var(--accent-ink)}
+.try-result{margin-top:12px; font-size:13px; color:var(--ink-dim); display:none}
+
+/* ---------- 说明条 ---------- */
+.disclosure{
+  margin-top:40px; border-top:1px solid var(--line); padding-top:18px;
+  font-size:12.5px; color:var(--ink-dim);
+}
+.disclosure summary{cursor:pointer; font-family:var(--font-mono); color:var(--partial); letter-spacing:.02em}
+.disclosure .body{margin-top:12px; display:flex; flex-direction:column; gap:8px}
+.disclosure code{font-family:var(--font-mono); background:var(--surface-2); padding:1px 5px; border-radius:4px}
+
+[hidden]{display:none!important}
+</style>
+
+<div class="wrap">
+
+  <div class="masthead">
+    <div class="brand">
+      <span class="mark">EVID·CHECK</span>
+      <h1>投研观点证据核验台</h1>
+    </div>
+    <div class="tagline">观点 → 拆解 → 比对材料 → 逐条核验</div>
+  </div>
+
+  <div class="case-tabs" id="caseTabs" role="tablist"></div>
+
+  <div class="layout">
+    <aside class="materials" id="materialsPanel">
+      <h2>参考材料库 · 6份</h2>
+      <div id="materialsList"></div>
+    </aside>
+
+    <div class="main-col">
+      <div id="caseBody"></div>
+
+      <div class="try-box" id="tryBox">
+        <h3>对任意新观点试试看</h3>
+        <div class="try-row">
+          <input id="tryInput" type="text" placeholder="输入一段新的投研观点……" />
+          <button id="tryBtn">核验</button>
+        </div>
+        <div class="try-result" id="tryResult"></div>
+      </div>
+
+      <details class="disclosure">
+        <summary>关于这个 Demo：哪些是真实结果，哪些是预置内容</summary>
+        <div class="body">
+          <div>三个规定测试案例（观点A、观点B、临时查询）展示的拆解结果、证据匹配、核验结论、
+            修改建议，均由实际设计的核验流水线 Prompt（声明拆解 → 证据匹配 → 逐条核验 → 结果汇总）
+            驱动大模型逐条对照 6 份材料原文推理得出，<b>不是随意编造或简单的关键词硬编码</b>。
+            受限于当前 Demo 运行环境无法联网调用真实 API，这些结果被固化缓存在本页面中展示，
+            而不是在页面加载时实时请求模型。</div>
+          <div>完整的 Prompt 设计与可实际调用 <code>Anthropic API</code> 的 Python 流水线代码一并提交，
+            接入真实 <code>API Key</code> 后可对任意新观点重跑同一套逻辑、产出格式完全相同的新结果
+            （见设计文档"AI 应用方式"一节）。</div>
+          <div>下方"对任意新观点试试看"输入框是真实可交互的，但因为同样原因未接入实时模型调用，
+            提交后会如实提示这一点，而不会伪造一份看起来真实的核验结果。</div>
+        </div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<script>
+const MATERIALS = [{"id": "S1", "title": "行业协会季度快报", "source": "先进制造设备行业协会", "publish_date": "2026-04-08", "period": "2026年第一季度", "text": "初步统计显示，2026年第一季度国内半导体设备销售额为380亿元，同比增长18%，环比下降7%。其中，先进封装设备销售额同比增长35%。协会提示，本次数据为初步统计结果，后续可能调整。", "version_of": null, "is_preliminary": true, "nature": "官方统计数据"}, {"id": "S2", "title": "行业协会修订说明", "source": "先进制造设备行业协会", "publish_date": "2026-04-20", "period": "2026年第一季度", "text": "经补充统计和口径调整，2026年第一季度国内半导体设备销售额由初步统计的380亿元修订为360亿元，同比增长幅度由18%修订为12%。先进封装设备销售额同比增长35%的数据保持不变。", "version_of": "S1", "is_preliminary": false, "nature": "官方统计数据（修订版）"}, {"id": "S3", "title": "启明设备公司调研纪要", "source": "启明设备公司投资者交流活动", "publish_date": "2026-04-10", "period": "2026年第一季度 / 展望第二季度", "text": "公司2026年第一季度新签订单金额同比增长25%。公司管理层预计，随着部分订单进入交付阶段，第二季度产能利用率有望超过85%。管理层同时提示，新签订单增长不代表收入将在同一期间同比例增长，实际收入确认取决于交付和验收进度。", "version_of": null, "is_preliminary": false, "nature": "单一公司一手信息（含管理层前瞻性表述，非既成事实）"}, {"id": "S4", "title": "远峰科技2025年年度报告摘要", "source": "远峰科技年度报告", "publish_date": "2026-03-28", "period": "2025年全年", "text": "2025年公司营业收入同比下降4%，综合毛利率由31%下降至27%。公司表示，部分传统设备产品面临价格竞争，新产品尚处于客户验证阶段。公司预计2026年研发投入将有所增加，但未披露2026年收入增速目标。", "version_of": null, "is_preliminary": false, "nature": "单一公司已披露年报数据（事实）"}, {"id": "S5", "title": "华东智造证券行业研究报告", "source": "华东智造证券", "publish_date": "2026-04-12", "period": "2026年全年（预测）", "text": "我们预计，在先进封装需求增长和相关产业政策推动下，国内半导体设备行业2026年全年销售额可能同比增长20%左右。该数据为研究机构预测，不代表行业协会统计结果。若下游资本开支不及预期，实际增长可能低于预测。", "version_of": null, "is_preliminary": false, "nature": "研究机构预测（非事实，附条件与风险提示）"}, {"id": "S6", "title": "市场信息", "source": "新产业观察", "publish_date": "2026-04-09", "period": "未来数月（传闻）", "text": "据未具名行业人士透露，部分海外设备出口限制可能在未来数月内有所调整。目前尚未见到有关部门或相关企业发布正式信息。", "version_of": null, "is_preliminary": false, "nature": "未经证实的市场传闻（无官方/企业信源确认）"}];
+const CASES = {"A": {"viewpoint": "2026年第一季度国内半导体设备销售额同比增长18%，表明行业已经进入全面复苏阶段。启明设备第二季度产能利用率已经超过85%，充分证明行业内公司都在加速扩产。随着海外设备出口限制即将放松，预计国内设备企业今年将普遍实现20%以上增长。", "claims": [{"claim_id": "A1", "text": "2026年第一季度国内半导体设备销售额同比增长18%", "claim_type": "data", "evidence": [{"material_id": "S1", "relevance": "支持（但为初步统计）", "quoted_span": "初步统计显示，2026年第一季度国内半导体设备销售额为380亿元，同比增长18%"}, {"material_id": "S2", "relevance": "该材料是对S1的修订，取代了其数据", "quoted_span": "2026年第一季度国内半导体设备销售额由初步统计的380亿元修订为360亿元，同比增长幅度由18%修订为12%"}], "verdict": "outdated", "explanation": "18%一数引自S1（2026-04-08发布的初步统计），但行业协会已于2026-04-20发布S2修订说明，将同比增速下修为12%，并注明S1为'初步统计结果'。S2发布时间晚于S1，应以S2为准，18%已是被取代的旧数据。", "suggested_rewrite": "2026年第一季度国内半导体设备销售额同比增长12%（行业协会2026年4月20日修订数据；此前4月8日发布的初步统计为18%，已被修订，不建议再引用）。"}, {"claim_id": "A2", "text": "表明行业已经进入全面复苏阶段", "claim_type": "inference", "evidence": [{"material_id": "S1", "relevance": "限定条件/反例", "quoted_span": "环比下降7%"}, {"material_id": "S4", "relevance": "反例", "quoted_span": "2025年公司营业收入同比下降4%，综合毛利率由31%下降至27%"}], "verdict": "not_supported", "explanation": "'全面复苏'是对整个行业的强判断，但现有材料不足以支撑：(1) S1本身披露2026Q1环比下降7%，与'复苏'方向相反；(2) S4显示远峰科技2025年收入和毛利率均下降，是行业内的明显反例；(3) 即使采用修订后的12%同比数据，单季度一个同比增速也不足以定义'全面复苏'这一行业级论断。该推断存在以偏概全问题。", "suggested_rewrite": "2026年第一季度行业整体同比数据有所改善（修订后为+12%），但环比仍下降，且企业间表现分化（如远峰科技2025年收入、毛利率均下滑），尚不构成'全面复苏'的充分证据。"}, {"claim_id": "A3", "text": "启明设备第二季度产能利用率已经超过85%", "claim_type": "data", "evidence": [{"material_id": "S3", "relevance": "部分支持，但时态被改写", "quoted_span": "公司管理层预计，随着部分订单进入交付阶段，第二季度产能利用率有望超过85%"}], "verdict": "not_supported", "explanation": "S3原文是管理层'预计''有望超过85%'，属于尚未发生的前瞻性表述；观点A改写为'已经超过85%'，将预测性陈述包装成既成事实，时态与确定性均被错误改写，属于'预测当事实'的典型问题。", "suggested_rewrite": "启明设备管理层预计第二季度产能利用率有望超过85%（截至材料发布时尚为预期，非已实现数据）。"}, {"claim_id": "A4", "text": "充分证明行业内公司都在加速扩产", "claim_type": "generalization", "evidence": [{"material_id": "S3", "relevance": "样本仅覆盖单一公司，且为预测", "quoted_span": "公司2026年第一季度新签订单金额同比增长25%"}, {"material_id": "S4", "relevance": "反例", "quoted_span": "部分传统设备产品面临价格竞争，新产品尚处于客户验证阶段"}], "verdict": "not_supported", "explanation": "该结论仅以启明设备一家公司的（且尚未实现的）产能利用率预期，就推广到'行业内公司都'，样本量不足以支撑全称判断；同时S4中的远峰科技显示传统产品面临价格竞争、新产品仍在验证阶段，与'加速扩产'的判断相矛盾，构成反例。'充分证明'的措辞也夸大了证据强度。", "suggested_rewrite": "启明设备一家公司的新签订单和产能利用率预期有所改善，但不能据此推断行业内公司普遍在加速扩产；远峰科技等公司的情况显示行业内部存在明显分化。"}, {"claim_id": "A5", "text": "随着海外设备出口限制即将放松", "claim_type": "prediction", "evidence": [{"material_id": "S6", "relevance": "来源为未经证实的传闻，且方向被过度解读", "quoted_span": "据未具名行业人士透露，部分海外设备出口限制可能在未来数月内有所调整。目前尚未见到有关部门或相关企业发布正式信息"}], "verdict": "not_supported", "explanation": "S6明确说明信息来源为'未具名行业人士透露'，且'尚未见到有关部门或相关企业发布正式信息'，属于未经证实的市场传闻。观点A将其改写为确定性的'即将放松'，不仅把传闻当作既定事实，'放松'这一方向性判断也超出了S6原文'可能……有所调整'的表述（调整不等于放松）。", "suggested_rewrite": "市场传闻部分海外设备出口限制未来数月可能有所调整，但尚无官方或企业正式信息证实，该信息的确定性和方向均存在不确定性，不宜作为判断依据。"}, {"claim_id": "A6", "text": "预计国内设备企业今年将普遍实现20%以上增长", "claim_type": "generalization", "evidence": [{"material_id": "S5", "relevance": "部分支持，但适用层级与前提条件被省略", "quoted_span": "我们预计，在先进封装需求增长和相关产业政策推动下，国内半导体设备行业2026年全年销售额可能同比增长20%左右。该数据为研究机构预测，不代表行业协会统计结果。若下游资本开支不及预期，实际增长可能低于预测"}], "verdict": "not_supported", "explanation": "S5给出的是'行业全年销售额'层面的研究机构预测（约20%，非确数），且明确附带前提条件（先进封装需求增长+产业政策推动）和风险提示（资本开支不及预期可能低于预测）。观点A将其改写为'设备企业今年将普遍实现20%以上增长'，一是把行业总量预测套用到单个'企业'层面（层级错位），二是用'普遍'做全称判断，三是丢弃了原文的前提条件和不确定性，三处改写均超出S5原始论断的范围。", "suggested_rewrite": "有研究机构预测2026年国内半导体设备行业全年销售额可能同比增长20%左右，但该预测以先进封装需求和产业政策持续推动为前提，且受下游资本开支影响，并不代表每家企业都将普遍实现同等增速。"}], "summary": {"overall_risk": "高", "summary": "观点A的6条子声明中，仅1条（数据来源可追溯但已过时）部分可追溯，其余5条均存在不同程度的问题：引用已被协会修订的旧数据、把管理层预测性表述包装成既成事实、以单一公司样本做行业级全称推断、把未经证实的市场传闻当作确定趋势、以及把行业总量预测套用到企业个体层面。整体论证链条存在多处断裂，不建议在当前材料基础上直接发布。", "action_items": ["将18%同比数据更正为协会4月20日修订后的12%，并说明修订背景", "将'启明设备产能利用率已超过85%'改写为管理层的预期表述，核实截至报告时点是否已有实际达成数据", "删除或大幅弱化'行业内公司都在加速扩产'的全称判断，或补充更多公司样本的数据支持", "核实海外设备出口限制调整的最新官方信息，在正式信息发布前不应作为判断依据引用", "明确区分'行业全年预测'与'企业个体今年增速'，并完整保留S5中的前提条件与风险提示"]}}, "B": {"viewpoint": "2026年第一季度先进封装设备销售额同比增长35%，显示相关需求增长较快。但行业和公司之间仍存在差异，例如远峰科技2025年收入和毛利率均有所下降。研究机构预测行业2026年销售额可能增长20%左右，但这一预测仍受到下游资本开支等因素影响。", "claims": [{"claim_id": "B1", "text": "2026年第一季度先进封装设备销售额同比增长35%", "claim_type": "data", "evidence": [{"material_id": "S1", "relevance": "支持", "quoted_span": "先进封装设备销售额同比增长35%"}, {"material_id": "S2", "relevance": "交叉确认，数据未被修订", "quoted_span": "先进封装设备销售额同比增长35%的数据保持不变"}], "verdict": "supported", "explanation": "S1（2026-04-08）与S2（2026-04-20，修订说明）均明确先进封装设备销售额同比+35%，且S2特别说明该数据'保持不变'，即在协会整体数据下修的同时，该分项数据经过交叉确认未受影响，证据强度高于单一来源。", "suggested_rewrite": ""}, {"claim_id": "B2", "text": "显示相关需求增长较快", "claim_type": "inference", "evidence": [{"material_id": "S1", "relevance": "支持", "quoted_span": "先进封装设备销售额同比增长35%"}], "verdict": "supported", "explanation": "该推断的范围被严格限定在'相关'（即先进封装设备）领域，与B1的35%同比数据相称，未像观点A那样把单一分项数据泛化到整个行业或'全面复苏'，推断幅度与证据强度相匹配。", "suggested_rewrite": ""}, {"claim_id": "B3", "text": "但行业和公司之间仍存在差异", "claim_type": "inference", "evidence": [{"material_id": "S3", "relevance": "支持（正面案例）", "quoted_span": "公司2026年第一季度新签订单金额同比增长25%"}, {"material_id": "S4", "relevance": "支持（反面案例）", "quoted_span": "2025年公司营业收入同比下降4%，综合毛利率由31%下降至27%"}], "verdict": "supported", "explanation": "该判断只是定性指出'存在差异'，并未做过度引申。S3（启明设备订单增长）与S4（远峰科技收入、毛利率下滑）两份材料分别呈现正反两类公司表现，足以支撑'行业和公司之间存在差异'这一相对克制的结论。", "suggested_rewrite": ""}, {"claim_id": "B4", "text": "远峰科技2025年收入和毛利率均有所下降", "claim_type": "data", "evidence": [{"material_id": "S4", "relevance": "支持", "quoted_span": "2025年公司营业收入同比下降4%，综合毛利率由31%下降至27%"}], "verdict": "supported", "explanation": "与S4原文完全一致：2025年营业收入同比下降4%，综合毛利率由31%降至27%，两项指标确实'均有所下降'，数据准确无改写。", "suggested_rewrite": ""}, {"claim_id": "B5", "text": "研究机构预测行业2026年销售额可能增长20%左右", "claim_type": "prediction", "evidence": [{"material_id": "S5", "relevance": "支持，且论断类型标注正确", "quoted_span": "我们预计……国内半导体设备行业2026年全年销售额可能同比增长20%左右。该数据为研究机构预测，不代表行业协会统计结果"}], "verdict": "supported", "explanation": "与观点A的A6不同，B5准确使用了'研究机构预测''可能'等措辞，与S5原文的定性（研究机构预测、非协会统计、约20%）完全一致，没有将预测包装成确定事实，也没有越级套用到企业个体层面。", "suggested_rewrite": ""}, {"claim_id": "B6", "text": "但这一预测仍受到下游资本开支等因素影响", "claim_type": "inference", "evidence": [{"material_id": "S5", "relevance": "支持", "quoted_span": "若下游资本开支不及预期，实际增长可能低于预测"}], "verdict": "supported", "explanation": "准确保留了S5原文中的风险提示（下游资本开支不及预期将导致实际增长低于预测），未省略原材料自带的不确定性条件，这是观点B论证严谨性的一个体现。", "suggested_rewrite": ""}], "summary": {"overall_risk": "低", "summary": "观点B的6条子声明全部获得材料支持：数据引用准确（35%经两版本交叉确认）、推断幅度与证据强度相称（未从局部跳到'全面'）、预测性表述标注规范（明确为'研究机构预测'并保留了前提与风险提示）。可作为可发布观点的参考基础。", "action_items": ["当前判断主要基于单季度同比数据+1家正面案例+1家反面案例，样本仍偏少，若需进一步强化'相关需求增长较快'的论证，建议补充更长周期或更多公司的数据", "可考虑在发布前补充说明'行业和公司之间存在差异'的具体机制（如产品结构、客户结构差异），目前材料对差异原因的覆盖有限"]}}, "adhoc": {"question": "根据现有材料，2026年第一季度国内半导体设备销售额及同比增速是多少？", "current_date": "2026-04-25", "answer": "根据现有材料，2026年第一季度国内半导体设备销售额为360亿元，同比增长12%（来源：先进制造设备行业协会《修订说明》，2026年4月20日发布）。（先进封装设备销售额同比增长35%这一分项数据，在初步统计和修订说明中保持一致，未被修订。）", "version_note": "行业协会于2026年4月8日发布的季度快报中曾初步统计为380亿元、同比增长18%，但协会已于2026年4月20日发布修订说明，将该数据下修为360亿元、同比增速下修为12%，并注明此前为'初步统计结果'。截至当前日期（2026年4月25日），4月20日的修订说明是关于该指标最新、最权威的材料，因此360亿元/12%应作为答案，380亿元/18%为已被取代的旧数据，不建议再引用。"}}; // {A: {...}, B: {...}, adhoc: {...}}
+
+const TYPE_LABEL = {data:'数据陈述', inference:'因果/推断', prediction:'预测性表述', generalization:'全称化判断'};
+const VERDICT_LABEL = {
+  supported:'✓ 材料支持', partially_supported:'△ 部分支持',
+  not_supported:'✕ 不支持', outdated:'↻ 数据已修订', uncovered:'? 材料未覆盖'
+};
+const RISK_DOT = {'高':'var(--bad)', '中':'var(--warn)', '低':'var(--ok)'};
+
+function esc(s){ return (s||'').replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+function citedMaterialIds(caseData){
+  const ids = new Set();
+  if(caseData.claims){
+    caseData.claims.forEach(c => (c.evidence||[]).forEach(e => ids.add(e.material_id)));
+  }
+  if(caseData.answer){ MATERIALS.forEach(m => { if(caseData.version_note && caseData.version_note.includes(m.id)) ids.add(m.id); if(caseData.answer.includes(m.id)) ids.add(m.id); }); ids.add('S1'); ids.add('S2'); }
+  return ids;
+}
+
+function renderMaterials(activeIds){
+  const el = document.getElementById('materialsList');
+  el.innerHTML = MATERIALS.map(m => {
+    const dim = activeIds && !activeIds.has(m.id) ? ' dim' : '';
+    return `<div class="mat-item${dim}">
+      <span class="mid">${m.id}</span>
+      <div class="mtitle">${esc(m.title)}</div>
+      <div class="mmeta">${esc(m.source)} · ${esc(m.publish_date)}</div>
+      ${m.is_preliminary ? '<div class="mnote">⚠ 初步统计，已被修订</div>' : ''}
+      ${m.version_of ? `<div class="mnote">↻ 为 ${m.version_of} 的修订说明</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderClaimCard(c){
+  const evRows = (c.evidence||[]).map(e => `
+    <div class="ev-row">
+      <div><span class="ev-id">${esc(e.material_id)}</span><div class="ev-rel">${esc(e.relevance)}</div></div>
+      <div class="ev-quote">"${esc(e.quoted_span)}"</div>
+    </div>`).join('');
+  const rewrite = c.suggested_rewrite ? `
+    <div class="rewrite"><span class="k">建议改写</span><br/>${esc(c.suggested_rewrite)}</div>` : '';
+  return `<div class="claim-card">
+    <div class="claim-head">
+      <div><div class="claim-id">${esc(c.claim_id)}</div><div class="claim-text">${esc(c.text)}</div></div>
+      <div class="badges">
+        <span class="badge type">${TYPE_LABEL[c.claim_type]||c.claim_type}</span>
+        <span class="badge v-${c.verdict}">${VERDICT_LABEL[c.verdict]||c.verdict}</span>
+      </div>
+    </div>
+    <div class="evidence">${evRows}</div>
+    <div class="explain"><span class="k">核验说明</span><br/>${esc(c.explanation)}</div>
+    ${rewrite}
+  </div>`;
+}
+
+function renderViewpointCase(caseData){
+  const summary = caseData.summary;
+  const claimsHtml = caseData.claims.map(renderClaimCard).join('');
+  return `
+    <div class="viewpoint-card">
+      <div class="label">待核验观点</div>
+      <div class="vtext">${esc(caseData.viewpoint)}</div>
+    </div>
+    <div class="summary-banner">
+      <span class="risk-badge ${summary.overall_risk}">风险：${summary.overall_risk}</span>
+      <div>
+        <div class="stext">${esc(summary.summary)}</div>
+        <details class="actions"><summary>需要研究员确认 / 补充研究的事项（${summary.action_items.length}）</summary>
+          <ul>${summary.action_items.map(a=>`<li>${esc(a)}</li>`).join('')}</ul>
+        </details>
+      </div>
+    </div>
+    <div class="claims">${claimsHtml}</div>
+  `;
+}
+
+function renderAdhocCase(caseData){
+  return `
+    <div class="query-card">
+      <div class="query-q">研究员临时查询 · 当前日期 ${esc(caseData.current_date)}</div>
+      <div class="query-qtext">${esc(caseData.question)}</div>
+      <div class="query-a">${esc(caseData.answer)}</div>
+      <div class="query-note"><span class="k">版本冲突检测</span>${esc(caseData.version_note)}</div>
+    </div>
+  `;
+}
+
+const CASE_META = {
+  A: {label:'案例一 · 观点A', risk:'高'},
+  B: {label:'案例二 · 观点B', risk:'低'},
+  adhoc: {label:'案例三 · 临时查询', risk:null},
+};
+
+function renderTabs(active){
+  const el = document.getElementById('caseTabs');
+  el.innerHTML = Object.keys(CASE_META).map(key => {
+    const m = CASE_META[key];
+    const dot = m.risk ? `<span class="risk-dot" style="background:${RISK_DOT[m.risk]}"></span>` : '';
+    return `<button class="case-tab" role="tab" data-case="${key}" aria-selected="${key===active}">${dot}${m.label}</button>`;
+  }).join('');
+  el.querySelectorAll('.case-tab').forEach(btn => btn.addEventListener('click', () => showCase(btn.dataset.case)));
+}
+
+function showCase(key){
+  renderTabs(key);
+  const body = document.getElementById('caseBody');
+  const data = CASES[key];
+  if(key === 'adhoc'){
+    body.innerHTML = renderAdhocCase(data);
+    renderMaterials(new Set(['S1','S2']));
+  } else {
+    body.innerHTML = renderViewpointCase(data);
+    renderMaterials(citedMaterialIds(data));
+  }
+}
+
+document.getElementById('tryBtn').addEventListener('click', () => {
+  const val = document.getElementById('tryInput').value.trim();
+  const out = document.getElementById('tryResult');
+  out.style.display = 'block';
+  if(!val){
+    out.textContent = '请输入一段观点文本。';
+    return;
+  }
+  out.innerHTML = `当前 Demo 环境未接入实时模型调用，无法对这段新文本现场跑核验流水线
+    （如实说明，不展示伪造结果）。接入 <code style="font-family:var(--font-mono)">ANTHROPIC_API_KEY</code>
+    后，运行 <code style="font-family:var(--font-mono)">backend/orchestrator.py --text "你的观点"</code>
+    即可用与案例一、二完全相同的流水线，对这段文本生成同样结构的核验报告。`;
+});
+
+showCase('A');
+</script>
